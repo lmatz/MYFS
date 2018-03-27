@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 if (DEFINED ENV{BOOST_ROOT})
   set(BOOST_ROOT $ENV{BOOST_ROOT})
 endif ()
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS iostreams system)
 include_directories(${Boost_INCLUDE_DIRS})
 set(ExtLibs ${ExtLibs} ${Boost_LIBRARIES})
 
