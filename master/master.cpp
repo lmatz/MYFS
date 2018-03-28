@@ -1,4 +1,6 @@
-#include <myfs/myfs.hpp>
+#include <data/metadata.hpp>
+#include <op/op_myfs.hpp>
+#include <utils/log.hpp>
 
 #include <stddef.h>
 #include <assert.h>
@@ -33,7 +35,7 @@ static const struct fuse_operations myfs_oper = {
 	/*listxattr :*/ NULL,
 	/*removexattr :*/ NULL,
 	/*opendir :*/ NULL,
-	/*readdir :*/ NULL,
+	/*readdir :*/ op_readdir,
 	/*releasedir :*/ NULL,
 	/*fsyncdir :*/ NULL,
 	/*init :*/ op_init,
@@ -66,6 +68,8 @@ void myfs_usage() {
 static struct options {
 	int debug;
 	int show_help;
+	int meta_file_size;
+	uint32_t num_inodes;
 	uint64_t theta;
 	const char* log_filename;
 	const char* meta_dir;
@@ -80,8 +84,10 @@ static const struct fuse_opt option_spec[] = {
 	OPTION("-h", show_help),
 	OPTION("--help", show_help),
 	OPTION("--theta=%lu", theta),
-	OPTION("--log-file=%s", log_filename),
+	OPTION("--log-filename=%s", log_filename),
 	OPTION("--meta-dir=%s", meta_dir),
+	OPTION("--meta-file-size=%d", meta_file_size),
+	OPTION("--num-inodes=%u", num_inodes),
 	FUSE_OPT_END
 };
 
@@ -90,11 +96,13 @@ static void show_help(const char *progname)
 {
 	printf("usage: %s [options] <mountpoint>\n\n", progname);
 	printf("File-system specific options:\n"
-	       "    --log_filename=<s>          Name of the log file [Default] myfs.log\n"
-		   "    --meta_dir=<s>              Name of the log file [Default] current directory\n"
+	       "    --log-filename=<s>          Name of the log file [Default] myfs.log\n"
+		   "    --meta-dir=<s>              Name of the log file [Default] current directory\n"
+		   "    --meta-file-size=<d>        The size of meta file[Default] 1GB\n"
+		   "    --num-inodes=<u>            The number of inodes [Default] 1024*1024=1048576\n"
 		   "    --debug, -d                 Enable debug         [Default] false\n"
 		   "    --help, -h                  Show help            [Default] false\n"
-		   "    --theta=<lu>                     Set theta            [No Default]\n"
+		   "    --theta=<lu>                Set theta            [No Default]\n"
 	       "\n");
 }
 
@@ -122,19 +130,14 @@ int main(int argc, char *argv[]) {
 	options.debug = 0;
 	options.show_help = 0;
 	options.theta = 0;
+	options.num_inodes = 1024*1024;
 	options.log_filename = strdup("myfs.log");
 	options.meta_dir = strdup(cwd);
-
+	options.meta_file_size = 1024*1024*1024; // 1GB
+		
 	/* Parse options */
 	if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1) {
 		return 1;	
-	}
-
-	// theta must be set by the user
-	if (!options.theta) {
-		fprintf(stderr, "theta is %lu. theta must be set by user\n", options.theta);
-		show_help(argv[0]);
-		return 1;
 	}
 
 	if (options.show_help) {
@@ -142,12 +145,31 @@ int main(int argc, char *argv[]) {
 		assert(fuse_opt_add_arg(&args, "--help") == 0);
 		args.argv[0] = (char*) "";
 	}
+	else {
+		// theta must be set by the user
+		if (!options.theta) {
+			fprintf(stderr, "theta is %lu. theta must be set by user\n", options.theta);
+			show_help(argv[0]);
+			return 1;
+		}
+	}
+
 
 
 	myfs_state->meta_dir = strdup(options.meta_dir);
-	myfs_state->log_filename = strdup(options.log_filename);
+	fprintf(stderr, "myfs_state->meta_dir: %s\n", myfs_state->meta_dir);
+	myfs_state->meta_file_size = options.meta_file_size;
+	fprintf(stderr, "myfs_state->meta_file_size: %d\n", myfs_state->meta_file_size);
+	myfs_state->num_inodes = options.num_inodes;
+	fprintf(stderr, "myfs_state->num_inodes: %u\n", myfs_state->num_inodes);
+	myfs_state->metadata = new GlobalMetadata(myfs_state->meta_dir, 500, myfs_state->meta_file_size, myfs_state->num_inodes);
+
 	myfs_state->debug = options.debug;
-	myfs_state->theta = options.theta;	
+	myfs_state->theta = options.theta;
+	myfs_state->log_filename = strdup(options.log_filename);
+	fprintf(stderr, "mfs_state->log_filename: %s\n", myfs_state->meta_dir);
+	myfs_state->logfile = Log::log_open(myfs_state->log_filename);
+	fprintf(stderr, "logfile created.\n try to create metadata.\n");
 	
 	// turn over control to fuse
 	fprintf(stderr, "about to call fuse_main\n");
