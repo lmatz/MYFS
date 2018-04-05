@@ -9,5 +9,3 @@ set(LibMyfs LibMyfsCore)
 
 add_executable(master master.cpp)
 target_link_libraries(master ${LibMyfs} ${ExtLibs})
-
-message("${ExtLibs}")
