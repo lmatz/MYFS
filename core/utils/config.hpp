@@ -1,17 +1,33 @@
 #pragma once
 #include <stdint.h>
 
+#include <unordered_map>
+
 namespace myfs {
 
 	class Config {
 	public:
-		static uint32_t max_write;
 
-		static uint64_t theta;
+		Config &get_instance() {
+			static Config config;
+			return config;
+		}
 
-		static const uint64_t block_size = 4*1024*1024;
 
-		static const uint32_t num_blocks = 15;
+		void putString(const std::string &key, const std::string &val);
+
+		void putInteger(const std::string &key, const size_t &val);
+
+		std::string getString(const std::string &key);
+
+		std::string getStringDefault(const std::string &key, const std::string &default_val);
+
+
+	private:
+
+		Config();
+
+		std::unordered_map<std::string, std::string> config_map;
 
 	};
 
