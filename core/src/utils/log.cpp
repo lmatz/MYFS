@@ -23,21 +23,22 @@ using utimbuf        = ::utimbuf;
 namespace myfs {
 
 
-FILE *Log::log_open()
+FILE *Log::log_open(const char* log_filename)
 {
     FILE *logfile;
     
     // very first thing, open up the logfile and mark that we got in
     // here.  If we can't open the logfile, we're dead.
-    logfile = fopen(MYFS_DATA->log_filename, "w");
+    logfile = fopen(log_filename, "w");
     if (logfile == NULL) {
-	perror("logfile");
-	exit(EXIT_FAILURE);
+		perror("logfile");
+		exit(EXIT_FAILURE);
     }
     
     // set logfile to line buffering
     setvbuf(logfile, NULL, _IOLBF, 0);
 
+	fprintf(stderr, "Log::log_open: %s succeed\n", log_filename); 
     return logfile;
 }
 
@@ -55,7 +56,7 @@ void Log::log_msg(const char *format, ...)
 }
 
 // Report errors to logfile and give -errno to caller
-int Log::log_error(char *func)
+int Log::log_error(const char *func)
 {
     int ret = -errno;
     

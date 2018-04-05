@@ -17,13 +17,13 @@ namespace myfs {
 
 	class Log {
 	public:
-		static FILE *log_open(void);
+		static FILE *log_open(const char*);
 		
 		static void log_msg(const char *format, ...);
 		
 		static void log_conn(struct ::fuse_conn_info *conn);
 		
-		static int log_error(char *func);
+		static int log_error(const char *func);
 		
 		static void log_fi(struct ::fuse_file_info *fi);
 		
