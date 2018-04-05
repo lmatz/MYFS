@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include <utils/config.hpp>
+#include <utils/constant.hpp>
 
 namespace myfs {
 
@@ -27,7 +27,7 @@ namespace myfs {
 				uint32_t  m_i_reserved1;
 			} masix1;
 		} osd1;				/* OS dependent 1 */
-		uint32_t	i_block[Config::num_blocks];/* Pointers to blocks */
+		uint32_t	i_block[NUM_BLOCKS];/* Pointers to blocks */
 		uint32_t	i_version;	/* File version (for NFS) */
 		uint32_t	i_file_acl;	/* File ACL */
 		uint32_t	i_dir_acl;	/* Directory ACL */
