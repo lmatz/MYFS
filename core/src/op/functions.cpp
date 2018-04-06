@@ -1,9 +1,8 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include <op/op_myfs.hpp>
+#include <op/functions.hpp>
 
-//#include <data/inode.hpp>
 #include <utils/log.hpp>
 #include <utils/type.hpp>
 
@@ -28,22 +27,7 @@ namespace myfs {
 		return 0;
 	}
 
-
-	// return 0 means success
-	// otherwise, master and worker should abort instead of calling fuse_main
-	int check() {
-		int res = 0;
-		int size = sizeof(myfs_inode);
-		fprintf(stderr, "Size of struct myfs_inode is %d\n", size);
-		if (size <= 128) {
-			fprintf(stderr, "But we expect size of struct myfs_inode is <= 128 bytes\n");
-			return -1;
-		}
-
-		return 0;	
-	}
-
-	void strmode(mode_t mode, char * buf) {
+	void strmode(mode_t mode, char *buf) {
   		const char chars[] = "rwxrwxrwx";
   		for (size_t i = 0; i < 9; i++) {
     		buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
