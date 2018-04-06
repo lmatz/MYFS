@@ -1,25 +1,27 @@
+#pragma once
 #include <stdint.h>
 
 #include <utils/constant.hpp>
 
 namespace myfs {
 
-#define S_IFMT      0170000
-#define S_IFSOCK    0140000
-#define S_IFLNK     0120000
-#define S_IFREG     0100000
-#define S_IFBLK     0060000
-#define S_IFDIR     0040000
-#define S_IFCHR     0020000
-#define S_IFIFO     0010000
+#define MYS_IFMT      0170000
+#define MYS_IFSOCK    0140000
+#define MYS_IFLNK     0120000
+#define MYS_IFREG     0100000
+#define MYS_IFBLK     0060000
+#define MYS_IFDIR     0040000
+#define MYS_IFCHR     0020000
+#define MYS_IFIFO     0010000
 
-#define S_ISREG(m)  (((m) & S_IFMT) == S_IFREG)
-#define S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)
-#define S_ISCHR(m)	(((m) & S_IFMT) == S_IFCHR)
-#define S_ISBLK(m)	(((m) & S_IFMT) == S_IFBLK)
-#define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
-#define S_ISLNK(m)	(((m) & S_IFMT) == S_ISLNK)
-#define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
+#define MYS_ISREG(m)  (((m) & MYS_IFMT) == MYS_IFREG)
+#define MYS_ISDIR(m)	(((m) & MYS_IFMT) == MYS_IFDIR)
+#define MYS_ISCHR(m)	(((m) & MYS_IFMT) == MYS_IFCHR)
+#define MYS_ISBLK(m)	(((m) & MYS_IFMT) == MYS_IFBLK)
+#define MYS_ISFIFO(m) (((m) & MYS_IFMT) == MYS_IFIFO)
+#define MYS_ISLNK(m)	(((m) & MYS_IFMT) == MYS_ISLNK)
+#define MYS_ISSOCK(m) (((m) & MYS_IFMT) == MYS_IFSOCK)
+
 	struct myfs_inode {
 		uint16_t	i_mode; 	/* File mode */
 		uint16_t	i_uid;  	/* Owner Uid */

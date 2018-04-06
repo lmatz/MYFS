@@ -1,38 +1,41 @@
 #include <stdlib.h>
 
-#include <data/metadata.hpp>
 #include <utils/log.hpp>
-#include <myfs/myfs.hpp>
+#include <utils/macros.hpp>
+#include <op/op_myfs.hpp>
+#include <op/functions.hpp>
 
 
 namespace myfs {
 
 	int op_getattr(const char *path, struct stat *stbuf) {
 		Log::log_msg("op_getattr path:%s\n", path);	
+		GlobalMetadata *meta = MYFS_METADATA;
+
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_nlink = 2;
 		int res;
 		myfs_ino_t ino;
-		myfs_inode inode;
+		myfs_inode *inode;
 
-
+		// check whether the path is valid
 		res = check_path(path);
 		if (res != 0) {
-			char *msg = strdup("op_getattr check_path fails.");
-			Log::log_error(msg);
-			free(msg);
+			Log::log_error("op_getattr check_path fails.");
 			return res;	
 		}
 
-		res = GlobalMetadata::get_instance().read_inode(path, &ino, &inode);
+		// read the inode associated with the path
+		// and fill the information required to the stbuf
+		res = meta->read_inode(path, &ino, inode);
 		if (res != 0 ) {
-			char *msg = strdup("op_getattr read_inode fails.");
-			Log::log_error(msg);
-			free(msg);
+			Log::log_error("op_getattr read_inode fails.");
 			return res;
 		}
 
-		res = do_fill_stat(stbuf, ino, &inode);
+		res = do_fill_stat(stbuf, ino, inode);
 
-		Log::log_msg("op_getattr success\n");
+		Log::log_msg("op_getattr success.\n");
 		return 0;
 	} 	
 

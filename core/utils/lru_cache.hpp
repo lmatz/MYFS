@@ -16,6 +16,12 @@ public:
 	lru_cache(size_t max_size) :
 		_max_size(max_size) {
 	}
+
+	lru_cache() {}
+
+	void set_max_size(size_t max_size) {
+		this->_max_size = max_size;
+	}
 	
 	void put(const key_t& key, const value_t& value) {
 		auto it = _cache_items_map.find(key);

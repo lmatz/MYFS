@@ -9,6 +9,8 @@
 
 #include <all_fuse.hpp>
 #include <utils/type.hpp>
+#include <data/metadata.hpp>
+#include <io/io_manager.hpp>
 
 
 using fuse_conn_info = ::fuse_conn_info;

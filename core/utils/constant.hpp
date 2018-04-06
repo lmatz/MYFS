@@ -14,5 +14,8 @@ namespace myfs {
 #define THREADPOOL_SIZE 10
 #endif
 
+#ifndef INODE_SIZE
+#define INODE_SIZE 128
+#endif
 
 }

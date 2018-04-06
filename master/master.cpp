@@ -1,10 +1,13 @@
 #include <data/metadata.hpp>
+#include <utils/functions.hpp>
 #include <op/op_myfs.hpp>
 #include <utils/log.hpp>
 
 #include <stddef.h>
 #include <assert.h>
 #include <string>
+
+#include <zmq.hpp>
 
 using namespace myfs;
 
@@ -59,11 +62,6 @@ static const struct fuse_operations myfs_oper = {
 	/*fallocate :*/ NULL,
 };
 
-void myfs_usage() {
-	fprintf(stderr, "usage: myfs [FUSE and mount options] mountPoint\n");
-	abort();
-}
-
 
 static struct options {
 	int debug;
@@ -73,6 +71,7 @@ static struct options {
 	uint64_t theta;
 	const char* log_filename;
 	const char* meta_dir;
+	const char* worker_list;
 } options;
 
 #define OPTION(t, p) \
@@ -88,6 +87,7 @@ static const struct fuse_opt option_spec[] = {
 	OPTION("--meta-dir=%s", meta_dir),
 	OPTION("--meta-file-size=%d", meta_file_size),
 	OPTION("--num-inodes=%u", num_inodes),
+	OPTION("--worker_list", worker_list),
 	FUSE_OPT_END
 };
 
@@ -103,6 +103,7 @@ static void show_help(const char *progname)
 		   "    --debug, -d                 Enable debug         [Default] false\n"
 		   "    --help, -h                  Show help            [Default] false\n"
 		   "    --theta=<lu>                Set theta            [No Default]\n"
+		   "    --port=<s>                  Set master port      [Default] 16666\n"     
 	       "\n");
 }
 
@@ -134,6 +135,7 @@ int main(int argc, char *argv[]) {
 	options.log_filename = strdup("myfs.log");
 	options.meta_dir = strdup(cwd);
 	options.meta_file_size = 1024*1024*1024; // 1GB
+	options.worker_list = strdup("");
 		
 	/* Parse options */
 	if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1) {
@@ -155,14 +157,15 @@ int main(int argc, char *argv[]) {
 	}
 
 
-
 	myfs_state->meta_dir = strdup(options.meta_dir);
 	fprintf(stderr, "myfs_state->meta_dir: %s\n", myfs_state->meta_dir);
 	myfs_state->meta_file_size = options.meta_file_size;
 	fprintf(stderr, "myfs_state->meta_file_size: %d\n", myfs_state->meta_file_size);
 	myfs_state->num_inodes = options.num_inodes;
 	fprintf(stderr, "myfs_state->num_inodes: %u\n", myfs_state->num_inodes);
-	myfs_state->metadata = new GlobalMetadata(myfs_state->meta_dir, 500, myfs_state->meta_file_size, myfs_state->num_inodes);
+	GlobalMetadata& metadata = GlobalMetadata::get_instance();
+	myfs_state->metadata = &metadata;
+	((GlobalMetadata*)(myfs_state->metadata))->initialize(myfs_state->meta_dir, 500, myfs_state->meta_file_size, myfs_state->num_inodes);
 
 	myfs_state->debug = options.debug;
 	myfs_state->theta = options.theta;
@@ -170,6 +173,10 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "mfs_state->log_filename: %s\n", myfs_state->meta_dir);
 	myfs_state->logfile = Log::log_open(myfs_state->log_filename);
 	fprintf(stderr, "logfile created.\n try to create metadata.\n");
+
+	IOManager& io_manager = IOManager::get_instance();
+	myfs_state->io_manager = &io_manager;
+	((IOManager*)(myfs_state->io_manager))->initialize(options.worker_list);
 	
 	// turn over control to fuse
 	fprintf(stderr, "about to call fuse_main\n");
