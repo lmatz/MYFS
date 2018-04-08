@@ -27,6 +27,8 @@ namespace myfs {
 
 		int change_owner(const char *path, uid_t uid, gid_t gid);
 
+		int check_access(const char *path, int mask, uid_t uid, gid_t gid);
+
 		int read_inode(const char *path, myfs_ino_t *, myfs_inode *);
 
 		int write_inode(myfs_ino_t, myfs_inode *);
@@ -69,6 +71,9 @@ namespace myfs {
 
 		// find a new allocation for inode
 		int allocate_new_inode(int *index);
+
+		// this function sohuld only be called when we are sure that this file exists
+		int check_permission(uid_t ino_uid, gid_t ino_gid, mode_t mode, uid_t uid, gid_t gid, int mask);
 
 		//std::unordered_map<myfs_ino_t, myfs_inode*> ino_t_to_inode;
 

@@ -105,17 +105,35 @@ namespace myfs {
 		return 0;
 	}
 
+	int GlobalMetadata::check_access(const char *path, int mask, uid_t uid, gid_t gid) {
+		int res = 0;
+		myfs_ino_t ino;
+		myfs_inode *inode;
+		
+		res = read_inode(path, &ino, inode);
+		if (res != 0) {
+			Log::log_msg("GlobalMetadata::check_access read inode for path:%s fails.\n");
+			return res;
+		}
+		
+		uid_t ino_uid = inode->i_uid;
+		gid_t ino_gid = inode->i_gid;
+		mode_t ino_mode = inode->i_mode;	
 
-	int GlobalMetadata::read_inode(const char *path, myfs_ino_t *ino, myfs_inode *inode) {
+		res = check_permission(ino_uid, ino_gid, ino_mode, uid, gid, mask);	
+		return res;
+	}
+
+	int GlobalMetadata::read_inode(const char *path, myfs_ino_t *ino_ret, myfs_inode *inode) {
 		int res = 0;
 		// first we check whether the inode associated with the path is in the cache
 		//bool exist = path_to_ino_t.exists(std::string(path));
-		myfs_ino_t ino_t;
+		myfs_ino_t ino;
 		//if (exist) {
 		//	ino_t = path_to_ino_t.get(std::string(path));
 		//}
 		//else {
-			res = search_inode(&ino_t, path);
+			res = search_inode(&ino, path);
 			if (res != 0) {
 				Log::log_msg("GlobalMetadata::read_inode Search inode for path:%s fails. Path doesn't exist.\n", path);
 				return res;
@@ -123,11 +141,11 @@ namespace myfs {
 		//	path_to_ino_t.put(path, ino_t);
 		//}
 
-		res = get_inode(ino_t, inode);
+		res = get_inode(ino, inode);
 		if (res != 0) {
 			return res;
 		}
-		*ino = ino_t;
+		*ino_ret = ino;
 
 		return res;
 	}
@@ -373,4 +391,87 @@ namespace myfs {
 	}
 
 
+	// this function should only be called when we are sure that this file exists.
+	int GlobalMetadata::check_permission(uid_t ino_uid, gid_t ino_gid, mode_t mode, uid_t uid, gid_t gid, int mask) {
+		int res = 0;
+		if (mask & F_OK) {
+			return 0;
+		}
+
+		// if the user want to check whether he has the read access
+		if (mask & R_OK) {
+			// if the user belongs to "owner"
+			if (ino_uid == uid) {
+				// if user cannot read the file
+				if (!(mode & S_IRUSR)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "group"
+			else if (ino_gid == gid) {
+				// if group cannot read the file
+				if (!(mode & S_IRGRP)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "other"
+			else {
+				// if other cannot read the file
+				if (!(mode & S_IROTH)) {
+					res = -1;
+				}
+			}
+		}
+
+		// if the user want to check whether he has the write access
+		if (mask & W_OK) {
+			// if the user belongs to "owner"
+			if (ino_uid == uid) {
+				// if user cannot write the file
+				if (!(mode & S_IWUSR)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "group"
+			else if (ino_gid == gid) {
+				// if group cannot write the file
+				if (!(mode & S_IWGRP)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "other" 
+			else {
+				// if group cannot write the file
+				if (!(mode & S_IWOTH)) {
+					res = -1;
+				}
+			}
+		}
+
+		// if the user want to check whether he has the executable access
+		if (mask & X_OK) {
+			// if the user belongs to "owner"
+			if (ino_uid == uid) {
+				// if user cannot execute the file
+				if (!(mode & S_IXUSR)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "group"
+			else if (ino_gid == gid) {
+				// if group cannot execute the file
+				if (!(mode & S_IXGRP)) {
+					res = -1;
+				}
+			}
+			// if the user belongs to "other"
+			else {
+				// if other cannot execute the file
+				if (!(mode & S_IXOTH)) {
+					res = -1;
+				}
+			}
+		}
+		return res;
+	}
 }
