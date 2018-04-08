@@ -260,6 +260,227 @@ namespace myfs {
 	 * Introduced in version 2.3
 	 * Changed in version 2.6
 	 */
-	void *op_init(struct fuse_conn_info *);
+	void* op_init(struct fuse_conn_info *);
 
+	/**
+	 * Clean up filesystem
+	 *
+	 * Called on filesystem exit.
+	 *
+	 * Introduced in version 2.3
+	 */
+	void op_destroy(void *);
+
+	/**
+	 * Check file access permissions
+	 *
+	 * This will be called for the access() system call.  If the
+	 * 'default_permissions' mount option is given, this method is not
+	 * called.
+	 *
+	 * This method is not called under Linux kernel versions 2.4.x
+	 *
+	 * Introduced in version 2.5
+	 */
+	int op_access(const char *, int);
+
+	/**
+	 * Create and open a file
+	 *
+	 * If the file does not exist, first create it with the specified
+	 * mode, and then open it.
+	 *
+	 * If this method is not implemented or under Linux kernel
+	 * versions earlier than 2.6.15, the mknod() and open() methods
+	 * will be called instead.
+	 *
+	 * Introduced in version 2.5
+	 */
+	int op_create(const char *, mode_t, struct fuse_file_info *);
+
+	/**
+	 * Change the size of an open file
+	 *
+	 * This method is called instead of the truncate() method if the
+	 * truncation was invoked from an ftruncate() system call.
+	 *
+	 * If this method is not implemented or under Linux kernel
+	 * versions earlier than 2.6.15, the truncate() method will be
+	 * called instead.
+	 *
+	 * Introduced in version 2.5
+	 */
+	int op_ftruncate(const char *, off_t, struct fuse_file_info *);
+
+	/**
+	 * Get attributes from an open file
+	 *
+	 * This method is called instead of the getattr() method if the
+	 * file information is available.
+	 *
+	 * Currently this is only called after the create() method if that
+	 * is implemented (see above).  Later it may be called for
+	 * invocations of fstat() too.
+	 *
+	 * Introduced in version 2.5
+	 */
+	int op_fgetattr(const char *, struct stat *, struct fuse_file_info *);
+
+	/**
+	 * Perform POSIX file locking operation
+	 *
+	 * The cmd argument will be either F_GETLK, F_SETLK or F_SETLKW.
+	 *
+	 * For the meaning of fields in 'struct flock' see the man page
+	 * for fcntl(2).  The l_whence field will always be set to
+	 * SEEK_SET.
+	 *
+	 * For checking lock ownership, the 'fuse_file_info->owner'
+	 * argument must be used.
+	 *
+	 * For F_GETLK operation, the library will first check currently
+	 * held locks, and if a conflicting lock is found it will return
+	 * information without calling this method.	 This ensures, that
+	 * for local locks the l_pid field is correctly filled in.	The
+	 * results may not be accurate in case of race conditions and in
+	 * the presence of hard links, but it's unlikely that an
+	 * application would rely on accurate GETLK results in these
+	 * cases.  If a conflicting lock is not found, this method will be
+	 * called, and the filesystem may fill out l_pid by a meaningful
+	 * value, or it may leave this field zero.
+	 *
+	 * For F_SETLK and F_SETLKW the l_pid field will be set to the pid
+	 * of the process performing the locking operation.
+	 *
+	 * Note: if this method is not implemented, the kernel will still
+	 * allow file locking to work locally.  Hence it is only
+	 * interesting for network filesystems and similar.
+	 *
+	 * Introduced in version 2.6
+	 */
+	int op_lock(const char *, struct fuse_file_info *, int cmd,
+		     struct flock *);
+
+	/**
+	 * Change the access and modification times of a file with
+	 * nanosecond resolution
+	 *
+	 * This supersedes the old utime() interface.  New applications
+	 * should use this.
+	 *
+	 * See the utimensat(2) man page for details.
+	 *
+	 * Introduced in version 2.6
+	 */
+	int op_utimens(const char *, const struct timespec tv[2]);
+
+	/**
+	 * Map block index within file to block index within device
+	 *
+	 * Note: This makes sense only for block device backed filesystems
+	 * mounted with the 'blkdev' option
+	 *
+	 * Introduced in version 2.6
+	 */
+	int op_bmap(const char *, size_t blocksize, uint64_t *idx);
+
+	/**
+	 * Ioctl
+	 *
+	 * flags will have FUSE_IOCTL_COMPAT set for 32bit ioctls in
+	 * 64bit environment.  The size and direction of data is
+	 * determined by _IOC_*() decoding of cmd.  For _IOC_NONE,
+	 * data will be NULL, for _IOC_WRITE data is out area, for
+	 * _IOC_READ in area and if both are set in/out area.  In all
+	 * non-NULL cases, the area is of _IOC_SIZE(cmd) bytes.
+	 *
+	 * If flags has FUSE_IOCTL_DIR then the fuse_file_info refers to a
+	 * directory file handle.
+	 *
+	 * Introduced in version 2.8
+	 */
+	int op_ioctl(const char *, int cmd, void *arg, struct fuse_file_info *, unsigned int flags, void *data);
+
+	/**
+	 * Poll for IO readiness events
+	 *
+	 * Note: If ph is non-NULL, the client should notify
+	 * when IO readiness events occur by calling
+	 * fuse_notify_poll() with the specified ph.
+	 *
+	 * Regardless of the number of times poll with a non-NULL ph
+	 * is received, single notification is enough to clear all.
+	 * Notifying more times incurs overhead but doesn't harm
+	 * correctness.
+	 *
+	 * The callee is responsible for destroying ph with
+	 * fuse_pollhandle_destroy() when no longer in use.
+	 *
+	 * Introduced in version 2.8
+	 */
+	int op_poll(const char *, struct fuse_file_info *,
+		     struct fuse_pollhandle *ph, unsigned *reventsp);
+
+	/** Write contents of buffer to an open file
+	 *
+	 * Similar to the write() method, but data is supplied in a
+	 * generic buffer.  Use fuse_buf_copy() to transfer data to
+	 * the destination.
+	 *
+	 * Introduced in version 2.9
+	 */
+	int op_write_buf(const char *, struct fuse_bufvec *buf, off_t off,
+			  struct fuse_file_info *);
+
+	/** Store data from an open file in a buffer
+	 *
+	 * Similar to the read() method, but data is stored and
+	 * returned in a generic buffer.
+	 *
+	 * No actual copying of data has to take place, the source
+	 * file descriptor may simply be stored in the buffer for
+	 * later data transfer.
+	 *
+	 * The buffer must be allocated dynamically and stored at the
+	 * location pointed to by bufp.  If the buffer contains memory
+	 * regions, they too must be allocated using malloc().  The
+	 * allocated memory will be freed by the caller.
+	 *
+	 * Introduced in version 2.9
+	 */
+	int op_read_buf(const char *, struct fuse_bufvec **bufp,
+			 size_t size, off_t off, struct fuse_file_info *);
+	/**
+	 * Perform BSD file locking operation
+	 *
+	 * The op argument will be either LOCK_SH, LOCK_EX or LOCK_UN
+	 *
+	 * Nonblocking requests will be indicated by ORing LOCK_NB to
+	 * the above operations
+	 *
+	 * For more information see the flock(2) manual page.
+	 *
+	 * Additionally fi->owner will be set to a value unique to
+	 * this open file.  This same value will be supplied to
+	 * ->release() when the file is released.
+	 *
+	 * Note: if this method is not implemented, the kernel will still
+	 * allow file locking to work locally.  Hence it is only
+	 * interesting for network filesystems and similar.
+	 *
+	 * Introduced in version 2.9
+	 */
+	int op_flock(const char *, struct fuse_file_info *, int op);
+
+	/**
+	 * Allocates space for an open file
+	 *
+	 * This function ensures that required space is allocated for specified
+	 * file.  If this function returns success then any subsequent write
+	 * request to specified range is guaranteed not to fail because of lack
+	 * of space on the file system media.
+	 *
+	 * Introduced in version 2.9.1
+	 */
+	int op_fallocate(const char *, int, off_t, off_t, struct fuse_file_info *);
 }

@@ -9,7 +9,7 @@
 
 namespace myfs {
 
-	void *op_init (struct fuse_conn_info *conn) {
+	void* op_init (struct fuse_conn_info *conn) {
 		return MYFS_DATA; 
 	}
 

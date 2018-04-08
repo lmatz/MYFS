@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <op/functions.hpp>
 
@@ -34,6 +35,31 @@ namespace myfs {
     		buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
  	 	}
   		buf[9] = '\0';
+	}
+
+	void straccess(int mask, char *buf) {
+		if (mask & F_OK) {
+			strcpy(buf,"F_OK");
+			return;
+		}
+		if (mask & R_OK) {
+			buf[0] = 'R';
+		}
+		else {
+			buf[0] = '-';
+		}
+		if (mask & W_OK) {
+			buf[1] = 'W';
+		}
+		else {
+			buf[1] = '-';
+		}
+		if (mask & X_OK) {
+			buf[2] = 'X';
+		}
+		else {
+			buf[2] = '-';
+		}
 	}
 
 
