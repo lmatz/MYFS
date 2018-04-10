@@ -4,7 +4,8 @@
 #include <unordered_map>
 
 #include <data/inode.hpp>
-#include <data/dir.hpp>
+//#include <data/dir.hpp>
+//#include <data/file.hpp>
 #include <utils/constant.hpp>
 #include <utils/lru_cache.hpp>
 #include <utils/type.hpp>
@@ -13,6 +14,11 @@
 
 namespace myfs {
 
+	class Dir;
+	class File;
+
+	// all the struct myfs_inode in this class should not be directly modified
+	// a inode should only be modified through class Dir or class File
 	class GlobalMetadata {
 	public:
 		
@@ -22,6 +28,8 @@ namespace myfs {
 		}
 
 		int initialize(const std::string &meta_filename, int cache_size, uint32_t num_bytes, uint32_t num_inodes);
+
+		int make_directory(const char *path, mode_t mode);
 
 		int change_mode(const char *path, mode_t mode);
 
@@ -34,6 +42,9 @@ namespace myfs {
 		int write_inode(myfs_ino_t, myfs_inode *);
 
 	private:
+
+		// friends
+		friend Dir;
 
 		GlobalMetadata();
 
@@ -70,17 +81,14 @@ namespace myfs {
 		// int convert_data_block_to_subdirs(std::vector<std::string> &subdirs, char *data, int len);
 
 		// find a new allocation for inode
-		int allocate_new_inode(int *index);
+		// since inode number serves as the index for inode struct
+		int allocate_new_inode(myfs_ino_t *index);
+
+		// fine a new allocation for data_block;
+		int allocate_new_data_block(uint32_t *idx);
 
 		// this function sohuld only be called when we are sure that this file exists
 		int check_permission(uid_t ino_uid, gid_t ino_gid, mode_t mode, uid_t uid, gid_t gid, int mask);
-
-		//std::unordered_map<myfs_ino_t, myfs_inode*> ino_t_to_inode;
-
-		// cache so that we can easily find the inode number by path
-		lru_cache<std::string, myfs_ino_t> path_to_ino_t;
-
-		std::shared_ptr<Dir> root_dir;
 
 		boost::iostreams::mapped_file file;
 

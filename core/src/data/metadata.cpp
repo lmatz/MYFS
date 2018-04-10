@@ -1,4 +1,5 @@
 #include <data/metadata.hpp>
+#include <data/dir.hpp>
 #include <op/functions.hpp>
 #include <utils/log.hpp>
 
@@ -6,6 +7,8 @@
 
 #include <string>
 #include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 namespace myfs {
 
@@ -17,7 +20,7 @@ namespace myfs {
 			return -1;
 		}
 		this->init = true;
-		this->path_to_ino_t.set_max_size(cache_size);
+		//this->path_to_ino_t.set_max_size(cache_size);
 		this->free_bits_i = 0;
 		this->free_bits_d = 0;
 		fprintf(stderr, "meta_filename:%s with size:%d\n", meta_filename.c_str(), num_bytes);
@@ -55,18 +58,29 @@ namespace myfs {
 		this->file.close();
 	}
 
+	int GlobalMetadata::make_directory(const char *path, mode_t mode) {
+		int res = 0;
+		myfs_ino_t ino;
+
+
+		std::vector<std::string> strs;
+		std::string path_str(path);
+		boost::split(strs, path_str, boost::is_any_of("\t "));
+
+		return 0;
+	}
 
 	int GlobalMetadata::change_mode(const char *path, mode_t mode) {
 		int res = 0;
-		myfs_ino_t ino_t;
-		myfs_inode *inode;
+		myfs_ino_t ino;
+		myfs_inode *inode = NULL;
 
-		res = search_inode(&ino_t, path);
+		res = search_inode(&ino, path);
 		if (res != 0) {
 			Log::log_msg("GlobalMetadata::change_mode Search inode for path:%s fails. Path doesn't exist.\n", path);	
 			return -1;
 		}
-		res = get_inode(ino_t, inode);
+		res = get_inode(ino, inode);
 		if (res != 0) {
 			return -1;	
 		}
@@ -83,15 +97,15 @@ namespace myfs {
 
 	int GlobalMetadata::change_owner(const char *path, uid_t uid, gid_t gid) {
 		int res = 0;
-		myfs_ino_t ino_t;
-		myfs_inode *inode;
+		myfs_ino_t ino;
+		myfs_inode *inode = NULL;
 
-		res = search_inode(&ino_t, path);
+		res = search_inode(&ino, path);
 		if (res != 0) {
 			Log::log_msg("GlobalMetadata::change_owner Search inode for path:%s fails. Path doesn't exists.\n", path);
 			return -1;
 		}
-		res = get_inode(ino_t, inode);
+		res = get_inode(ino, inode);
 		if (res != 0) {
 			return -1;
 		}
@@ -108,7 +122,7 @@ namespace myfs {
 	int GlobalMetadata::check_access(const char *path, int mask, uid_t uid, gid_t gid) {
 		int res = 0;
 		myfs_ino_t ino;
-		myfs_inode *inode;
+		myfs_inode *inode = NULL;
 		
 		res = read_inode(path, &ino, inode);
 		if (res != 0) {
@@ -150,9 +164,9 @@ namespace myfs {
 		return res;
 	}
 
-	int GlobalMetadata::write_inode(myfs_ino_t ino_t, myfs_inode *inode) {
-		myfs_inode* inode_old;
-		int res = get_inode(ino_t, inode);
+	int GlobalMetadata::write_inode(myfs_ino_t ino, myfs_inode *inode) {
+		myfs_inode *inode_old = NULL;
+		int res = get_inode(ino, inode);
 		if (res != 0) {
 			return res;
 		}
@@ -161,21 +175,21 @@ namespace myfs {
 	}
 
 
-	int GlobalMetadata::search_inode(myfs_ino_t *ino, const char *path) {
+	int GlobalMetadata::search_inode(myfs_ino_t *ino_ret, const char *path) {
 		int len = strlen(path);
 		char *target_path = (char*)malloc((len+1)*sizeof(char));
 		strcpy(target_path, path);
 		// check whether it is root directory
 		// if it is, we just return 1 because the inode number for root directory is 1
 		if (strcmp(target_path,"/") == 0) {
-			*ino = 1;
+			*ino_ret = 1;
 			return 0;
 		}
 
 		// get each subdirectory name
 		// all intermediate paths should be directory
 		// the last one can be a directory or a file
-		std::vector<char*> names;	
+		std::vector<char*> names;
 		const char *sep = "/"; 
   		char *p;
   		p = strtok(target_path, sep);
@@ -186,9 +200,9 @@ namespace myfs {
 
 		// we start from root directory
 		std::string current_dir = "/";
-		myfs_ino_t ino_t = 1;
-		myfs_inode *inode;
-		int res = get_inode(ino_t, inode);
+		myfs_ino_t ino = 1;
+		myfs_inode *inode = NULL;
+		int res = get_inode(ino, inode);
 		if (res != 0) {
 			return res;
 		}
@@ -198,14 +212,14 @@ namespace myfs {
 			// numes[i] is the sub directory or file we want to look for
 			// the returned ino_t is the sub directory or file's inode number
 			Log::log_msg("try to find %s under %s", names[i], current_dir);
-			res = find_file_in_dir(&ino_t, names[i]);
+			res = find_file_in_dir(&ino, names[i]);
 			// if there doesn't exist such a sub directory or file
 			if (res != 0) {
 				Log::log_msg("cannot find %s under directory %s\n", names[i], current_dir);
 				return res;
 			}
 			// if there exists, we get the inode for that sub directory or file
-			res = get_inode(ino_t, inode);
+			res = get_inode(ino, inode);
 			if (res != 0) {
 				return res;
 			}
@@ -221,21 +235,23 @@ namespace myfs {
 			current_dir += std::string(names[i]) + "/";
 		}
 
-		*ino = ino_t;
-		Log::log_msg("we find %s. Its inode number is %lu", current_dir, *ino);
+		*ino_ret = ino;
+		Log::log_msg("we find %s. Its inode number is %lu", current_dir, *ino_ret);
 		return 0;
 	}
 
-	int GlobalMetadata::find_file_in_dir(myfs_ino_t *ino_t, const char *name) {
+	int GlobalMetadata::find_file_in_dir(myfs_ino_t *ino_ret, const char *name) {
 		int res = 0;
-		myfs_inode *inode;
-		res = get_inode((*ino_t), inode);
+		myfs_inode *inode = NULL;
+		res = get_inode(*ino_ret, inode);
 		if (res != 0) {
 			return res;
 		}
+
 		uint16_t i_blocks = inode->i_blocks;
-		Log::log_msg("inode %lu has %u blocks", i_blocks);
-		Dir dir(inode);
+		Log::log_msg("inode %lu has %u blocks", *ino_ret, i_blocks);
+		//Dir dir(inode);
+
 		return res;
 	}
 
@@ -272,15 +288,17 @@ namespace myfs {
 		char* d_bitmap = data_block_bitmap();
 		d_bitmap[0] = 0x1;
 
-		myfs_ino_t root_ino_t = 1;
-		myfs_inode *root_inode;
-		int res = get_inode(root_ino_t, root_inode);
+		myfs_ino_t root_ino = 1;
+		myfs_inode *root_inode = NULL;
+		int res = get_inode(root_ino, root_inode);
 		if (res != 0) {
+			Log::log_msg("GlobalMetadata::initialize_root_dir cannot get root inode with index 1, Unbelievable!\n");
 			return res;
 		}
 
-		root_dir.reset(new Dir(root_inode));
+		//root_dir.reset(new Dir(root_inode));
 
+		return 0;
 	}
 
 	char* GlobalMetadata::inode_bitmap() {
@@ -321,6 +339,7 @@ namespace myfs {
 		offset += data_block_size * index;
 			
 		data += offset;
+		Log::log_msg("GlobalMetadata::get_data_block index: %u and the resulting offset: %u.\n", index, offset);
 		res = data;
 		return 0;
 	}
@@ -338,6 +357,7 @@ namespace myfs {
 		// here we check how much percentage of space will be allocated for 'num_inodes' inodes
 		
 		this->num_bits_i = num_inodes;
+		this->free_bits_i = this->num_bits_i;
 
 		// Since one byte = 8 bits, num_bytes_inode_bitmap is the number of bytes we need to represent bitmap
 		uint32_t num_bytes_inode_bitmap = num_inodes / 8;
@@ -362,6 +382,7 @@ namespace myfs {
 		num_bytes_all_d = num_blocks + data_block_size * num_blocks / 8;
 
 		this->num_bits_d = num_blocks;
+		this->free_bits_d = this->num_bits_d;
 
 		fprintf(stderr, "%lu data blocks will be allocated\n", num_blocks);
 		fprintf(stderr, "all bytes allocated for data blocks: %lu\n", num_bytes_all_d);
@@ -373,17 +394,36 @@ namespace myfs {
 	}
 
 
-	int GlobalMetadata::allocate_new_inode(int *index) {
-		char* bitmap = inode_bitmap();
-		for(size_t i = 0 ; i < num_bits_i/8 ; i++) {
-			int bit = 1;
-			*index = 1;
-			while(bit <= 256 && (bitmap[i] * bit) != 0) {
+	int GlobalMetadata::allocate_new_inode(myfs_ino_t *idx) {
+		char *bitmap = inode_bitmap();
+		for(size_t i = 0 ; i < num_bits_i / 8 ; i++) {
+			uint8_t bit = 1;
+			*idx = 1;
+			while(bit <= 256 && (bitmap[i] & bit) != 0) {
 				bit = bit << 1;
-				*index += 1;
+				*idx += 1;
 			}
-			if (bit!= 512) {
-				*index = 8 * i + *index;
+			if (bit != 512) {
+				*idx = 8 * i + *idx;
+				this->free_bits_i--;
+				return 0;
+			}
+		}
+		return -1;
+	}
+
+	int GlobalMetadata::allocate_new_data_block(uint32_t *idx) {
+		char *bitmap = data_block_bitmap();
+		for(size_t i = 0 ; i < num_bits_d / 8 ; i++) {
+			uint8_t bit = 1;
+			*idx = 1;
+			while(bit <= 256 && (bitmap[i] & bit) != 0) {
+				bit = bit << 1;
+				*idx += 1;
+			}
+			if (bit != 512) {
+				*idx = 8 * i + *idx;
+				this->free_bits_d--;
 				return 0;
 			}
 		}
